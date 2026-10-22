@@ -1,3 +1,342 @@
+// // // import { NextResponse } from "next/server";
+// // // import dbConnect from "@/utils/db";
+// // // import Deposit from "@/models/Deposit";
+// // // import Setting from "@/models/Setting";
+// // // import User from "@/models/User";
+// // // import AgentSettings from "@/models/AgentSettings";
+// // // import { verifyAuth } from "@/utils/authCheck";
+
+// // // // ============ DEPOSIT RATE LIMIT ============
+// // // const depositRateMap = new Map();
+// // // const DEPOSIT_WINDOW_MS = 60 * 60 * 1000;
+// // // const DEPOSIT_MAX = 10;
+
+// // // function getClientIp(req) {
+// // //   const xff = req.headers.get("x-forwarded-for");
+// // //   if (xff) return xff.split(",")[0].trim();
+// // //   return req.headers.get("x-real-ip") || "127.0.0.1";
+// // // }
+
+// // // function cleanupDepositMap() {
+// // //   const now = Date.now();
+// // //   for (const [ip, data] of depositRateMap.entries()) {
+// // //     if (now > data.resetTime) depositRateMap.delete(ip);
+// // //   }
+// // // }
+// // // // =============================================
+
+// // // const getSenderValidation = (method) => {
+// // //   const upper = String(method || "").toUpperCase();
+
+// // //   if (upper.includes("TRX") || upper.includes("TRON")) {
+// // //     return {
+// // //       minLength: 34,
+// // //       maxLength: 34,
+// // //       onlyDigits: false,
+// // //       label: "TRX Wallet Address",
+// // //     };
+// // //   }
+// // //   if (upper.includes("USDT") || upper.includes("BINANCE")) {
+// // //     return {
+// // //       minLength: 5,
+// // //       maxLength: 10,
+// // //       onlyDigits: false,
+// // //       label: "Binance/USDT ID",
+// // //     };
+// // //   }
+// // //   if (upper.includes("BTC") || upper.includes("BITCOIN")) {
+// // //     return {
+// // //       minLength: 26,
+// // //       maxLength: 50,
+// // //       onlyDigits: false,
+// // //       label: "Bitcoin Address",
+// // //     };
+// // //   }
+// // //   if (upper.includes("ETH") || upper.includes("ETHEREUM")) {
+// // //     return {
+// // //       minLength: 40,
+// // //       maxLength: 50,
+// // //       onlyDigits: false,
+// // //       label: "ETH Address",
+// // //     };
+// // //   }
+
+// // //   return {
+// // //     minLength: 11,
+// // //     maxLength: 11,
+// // //     onlyDigits: true,
+// // //     label: "Mobile Banking Number",
+// // //   };
+// // // };
+
+// // // export async function POST(req) {
+// // //   try {
+// // //     await dbConnect();
+
+// // //     // ============ RATE LIMIT ============
+// // //     const clientIp = getClientIp(req);
+// // //     const now = Date.now();
+
+// // //     if (depositRateMap.size > 500) cleanupDepositMap();
+
+// // //     const limitData = depositRateMap.get(clientIp);
+
+// // //     if (!limitData || now > limitData.resetTime) {
+// // //       depositRateMap.set(clientIp, {
+// // //         count: 1,
+// // //         resetTime: now + DEPOSIT_WINDOW_MS,
+// // //       });
+// // //     } else {
+// // //       if (limitData.count >= DEPOSIT_MAX) {
+// // //         const remainingMin = Math.ceil((limitData.resetTime - now) / 60000);
+// // //         return NextResponse.json(
+// // //           {
+// // //             success: false,
+// // //             message: `একটি IP থেকে অনেকবার ডিপোজিট রিকোয়েস্ট করা হয়েছে! ${remainingMin} মিনিট পর আবার চেষ্টা করুন।`,
+// // //           },
+// // //           { status: 429 },
+// // //         );
+// // //       }
+// // //       limitData.count++;
+// // //     }
+// // //     // ==========================================
+
+// // //     // ১. Auth verification
+// // //     const auth = await verifyAuth("user");
+// // //     if (!auth.success) {
+// // //       return NextResponse.json(
+// // //         { success: false, message: auth.message },
+// // //         {
+// // //           status: auth.status,
+// // //           headers: {
+// // //             "X-Content-Type-Options": "nosniff",
+// // //             "X-Frame-Options": "DENY",
+// // //           },
+// // //         },
+// // //       );
+// // //     }
+
+// // //     const user = auth.user;
+
+// // //     let body;
+// // //     try {
+// // //       body = await req.json();
+// // //     } catch (e) {
+// // //       return NextResponse.json(
+// // //         { success: false, message: "অবৈধ ডেটা!" },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     let {
+// // //       amount,
+// // //       method,
+// // //       senderNumber,
+// // //       accountNumber,
+// // //       transactionId,
+// // //       agentId,
+// // //     } = body || {};
+// // //     const finalSenderNumber = senderNumber || accountNumber;
+
+// // //     // ২. Presence check
+// // //     if (
+// // //       !amount ||
+// // //       !method ||
+// // //       !finalSenderNumber ||
+// // //       !transactionId ||
+// // //       !agentId
+// // //     ) {
+// // //       return NextResponse.json(
+// // //         { success: false, message: "অসম্পূর্ণ ডেটা! এজেন্ট সিলেক্ট করুন।" },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ৩. Amount sanitization
+// // //     const cleanAmount = Number(amount);
+// // //     if (isNaN(cleanAmount) || cleanAmount <= 0) {
+// // //       return NextResponse.json(
+// // //         { success: false, message: "অবৈধ পরিমাণ!" },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ✅ Database থেকে exchange rate
+// // //     const rateSetting = await Setting.findOne({ key: "usdToBdtRate" });
+// // //     const USD_TO_BDT_RATE = Number(rateSetting?.value) || 120;
+
+// // //     // ✅ USD Detection
+// // //     const methodUpper = String(method).toUpperCase();
+// // //     const isUSDPayment =
+// // //       methodUpper.includes("USDT") ||
+// // //       methodUpper.includes("BINANCE") ||
+// // //       methodUpper.includes("TRX") ||
+// // //       methodUpper.includes("TRON") ||
+// // //       methodUpper.includes("CRYPTO") ||
+// // //       methodUpper.includes("BTC") ||
+// // //       methodUpper.includes("ETH");
+
+// // //     // ✅ Convert to BDT
+// // //     const originalAmount = cleanAmount;
+// // //     const convertedAmount = isUSDPayment
+// // //       ? Math.round(cleanAmount * USD_TO_BDT_RATE)
+// // //       : cleanAmount;
+
+// // //     // ৪. Min deposit check
+// // //     if (convertedAmount < 500) {
+// // //       return NextResponse.json(
+// // //         {
+// // //           success: false,
+// // //           message: isUSDPayment
+// // //             ? `সর্বনিম্ন ডিপোজিট ৳500 (≈ $${(500 / USD_TO_BDT_RATE).toFixed(2)})!`
+// // //             : "সর্বনিম্ন ডিপোজিট ৫০০ টাকা!",
+// // //         },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ৫. Sender number validation
+// // //     const senderRule = getSenderValidation(method);
+// // //     const cleanSenderNumber = String(finalSenderNumber).trim();
+
+// // //     if (
+// // //       cleanSenderNumber.length < senderRule.minLength ||
+// // //       cleanSenderNumber.length > senderRule.maxLength
+// // //     ) {
+// // //       return NextResponse.json(
+// // //         {
+// // //           success: false,
+// // //           message: `${senderRule.label} — দৈর্ঘ্য ${senderRule.minLength}-${senderRule.maxLength} এর মধ্যে হতে হবে! (এখন ${cleanSenderNumber.length})`,
+// // //         },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     if (senderRule.onlyDigits && !/^\d+$/.test(cleanSenderNumber)) {
+// // //       return NextResponse.json(
+// // //         {
+// // //           success: false,
+// // //           message: `${senderRule.label} — শুধুমাত্র সংখ্যা গ্রহণযোগ্য!`,
+// // //         },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ৬. Transaction ID sanitization
+// // //     const cleanTrxId = String(transactionId).trim().toUpperCase();
+// // //     if (cleanTrxId.length < 5 || cleanTrxId.length > 100) {
+// // //       return NextResponse.json(
+// // //         { success: false, message: "TrxID সঠিক নয়!" },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ৭. Duplicate check
+// // //     const existingDeposit = await Deposit.findOne({
+// // //       transactionId: cleanTrxId,
+// // //     });
+// // //     if (existingDeposit) {
+// // //       return NextResponse.json(
+// // //         {
+// // //           success: false,
+// // //           message: "এই ট্রানজেকশন আইডি ইতিপূর্বেই ব্যবহার করা হয়েছে!",
+// // //         },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ==========================================
+// // //     // 🆕 ৮. এজেন্ট চেক (Atomic Balance Check)
+// // //     // ==========================================
+// // //     // findById-এর বদলে findOne ব্যবহার করে সরাসরি শর্তের মধ্যে ব্যালেন্স চেক করা হলো
+// // //     const agent = await User.findOne({
+// // //       _id: agentId,
+// // //       role: "agent",
+// // //       agentIsActive: true,
+// // //       agentIsBlocked: false,
+// // //       agentMainBalance: { $gte: convertedAmount }, // 👈 ব্যালেন্স চেক এখানেই হয়ে গেল
+// // //     })
+// // //       .select("role agentMainBalance agentDepositCommission")
+// // //       .lean();
+
+// // //     if (!agent) {
+// // //       return NextResponse.json(
+// // //         {
+// // //           success: false,
+// // //           message:
+// // //             "এজেন্ট পাওয়া যায়নি, অথবা এজেন্টের কাছে পর্যাপ্ত ব্যালেন্স নেই।",
+// // //         },
+// // //         { status: 400 },
+// // //       );
+// // //     }
+
+// // //     // ✅ গ্লোবাল সেটিংস থেকে ডলার রেট (কমিশন স্ন্যাপশট)
+// // //     const agentSettings = await AgentSettings.getSettings();
+
+// // //     // ✅ এজেন্টের কমিশন %
+// // //     const depositCommissionRate =
+// // //       agent.agentDepositCommission ??
+// // //       agentSettings.defaultDepositCommission ??
+// // //       0;
+
+// // //     // ✅ কমিশন (টাকায়)
+// // //     const agentCommission = Math.round(
+// // //       (convertedAmount * depositCommissionRate) / 100,
+// // //     );
+
+// // //     // ==========================================
+// // //     // ৯. Save deposit
+// // //     // ==========================================
+// // //     await Deposit.create({
+// // //       uid: user.uid,
+// // //       amount: convertedAmount,
+// // //       originalAmount: originalAmount,
+// // //       originalCurrency: isUSDPayment ? "USD" : "BDT",
+// // //       exchangeRate: isUSDPayment ? USD_TO_BDT_RATE : 1,
+// // //       method: String(method).trim(),
+// // //       senderNumber: cleanSenderNumber,
+// // //       transactionId: cleanTrxId,
+// // //       status: "pending",
+// // //       agentId: agent._id,
+// // //       agentCommissionRate: depositCommissionRate,
+// // //       agentCommission: agentCommission,
+// // //       agentCommissionPaid: false,
+// // //     });
+
+// // //     return NextResponse.json(
+// // //       {
+// // //         success: true,
+// // //         message: isUSDPayment
+// // //           ? `✅ ডিপোজিট সফল! $${originalAmount} → ৳${convertedAmount} (Rate: $1 = ৳${USD_TO_BDT_RATE})`
+// // //           : "✅ ডিপোজিট রিকোয়েস্ট সফলভাবে জমা হয়েছে!",
+// // //         conversion: isUSDPayment
+// // //           ? {
+// // //               original: originalAmount,
+// // //               originalCurrency: "USD",
+// // //               converted: convertedAmount,
+// // //               convertedCurrency: "BDT",
+// // //               rate: USD_TO_BDT_RATE,
+// // //             }
+// // //           : null,
+// // //       },
+// // //       {
+// // //         status: 200,
+// // //         headers: {
+// // //           "X-Content-Type-Options": "nosniff",
+// // //           "X-Frame-Options": "DENY",
+// // //           "Cache-Control": "no-store, no-cache, must-revalidate",
+// // //         },
+// // //       },
+// // //     );
+// // //   } catch (error) {
+// // //     console.error("Secure Deposit API Error:", error);
+// // //     return NextResponse.json(
+// // //       { success: false, message: "সার্ভারে ত্রুটি!" },
+// // //       { status: 500 },
+// // //     );
+// // //   }
+// // // }
+// // // ///////////////////////////////////////////////////////////////////////////
 // // import { NextResponse } from "next/server";
 // // import dbConnect from "@/utils/db";
 // // import Deposit from "@/models/Deposit";
@@ -246,25 +585,46 @@
 // //     }
 
 // //     // ==========================================
-// //     // 🆕 ৮. এজেন্ট চেক (Atomic Balance Check)
+// //     // 🆕 ৮. এজেন্ট চেক (Available Balance সহ)
 // //     // ==========================================
-// //     // findById-এর বদলে findOne ব্যবহার করে সরাসরি শর্তের মধ্যে ব্যালেন্স চেক করা হলো
 // //     const agent = await User.findOne({
 // //       _id: agentId,
 // //       role: "agent",
 // //       agentIsActive: true,
 // //       agentIsBlocked: false,
-// //       agentMainBalance: { $gte: convertedAmount }, // 👈 ব্যালেন্স চেক এখানেই হয়ে গেল
 // //     })
 // //       .select("role agentMainBalance agentDepositCommission")
 // //       .lean();
 
 // //     if (!agent) {
 // //       return NextResponse.json(
+// //         { success: false, message: "এজেন্ট পাওয়া যায়নি।" },
+// //         { status: 400 },
+// //       );
+// //     }
+
+// //     // ✅ এজেন্টের সব পেন্ডিং ডিপোজিট বের করুন
+// //     const pendingDeposits = await Deposit.find({
+// //       agentId: agent._id,
+// //       status: "pending",
+// //     }).lean();
+
+// //     // ✅ পেন্ডিং ডিপোজিটের মোট টাকা যোগ করুন
+// //     let pendingAmount = 0;
+// //     for (const dep of pendingDeposits) {
+// //       pendingAmount += Number(dep.amount) || 0;
+// //     }
+
+// //     // ✅ এভেইলেবল ব্যালেন্স = মোট ব্যালেন্স - পেন্ডিং
+// //     const availableBalance =
+// //       (Number(agent.agentMainBalance) || 0) - pendingAmount;
+
+// //     // ✅ পর্যাপ্ত এভেইলেবল ব্যালেন্স আছে কি না
+// //     if (availableBalance < convertedAmount) {
+// //       return NextResponse.json(
 // //         {
 // //           success: false,
-// //           message:
-// //             "এজেন্ট পাওয়া যায়নি, অথবা এজেন্টের কাছে পর্যাপ্ত ব্যালেন্স নেই।",
+// //           message: `এজেন্টের পর্যাপ্ত ব্যালেন্স নেই। এভেইলেবল: ৳${availableBalance.toFixed(2)}, প্রয়োজন: ৳${convertedAmount.toFixed(2)}`,
 // //         },
 // //         { status: 400 },
 // //       );
@@ -336,7 +696,7 @@
 // //     );
 // //   }
 // // }
-// // ///////////////////////////////////////////////////////////////////////////
+// // //////////////////////////////////////////////////////////////////////////////////////
 // import { NextResponse } from "next/server";
 // import dbConnect from "@/utils/db";
 // import Deposit from "@/models/Deposit";
@@ -367,22 +727,46 @@
 // const getSenderValidation = (method) => {
 //   const upper = String(method || "").toUpperCase();
 
-//   if (upper.includes("TRX") || upper.includes("TRON")) {
+//   // ✅ ১. TRX / TRON / USDT (TRC20)
+//   if (
+//     (upper.includes("USDT") && upper.includes("TRC20")) ||
+//     upper.includes("TRX") ||
+//     upper.includes("TRON")
+//   ) {
 //     return {
 //       minLength: 34,
 //       maxLength: 34,
 //       onlyDigits: false,
-//       label: "TRX Wallet Address",
+//       label: "TRX / USDT (TRC20) Wallet Address",
 //     };
 //   }
-//   if (upper.includes("USDT") || upper.includes("BINANCE")) {
+
+//   // ✅ ২. BNB / BSC / BEP20 / USDT (BEP20)
+//   if (
+//     (upper.includes("USDT") && upper.includes("BEP20")) ||
+//     upper.includes("BNB") ||
+//     upper.includes("BSC") ||
+//     upper.includes("BEP20")
+//   ) {
+//     return {
+//       minLength: 42,
+//       maxLength: 42,
+//       onlyDigits: false,
+//       label: "BNB / USDT (BEP20) Wallet Address",
+//     };
+//   }
+
+//   // ✅ ৩. BINANCE PAY ID
+//   if (upper.includes("BINANCE")) {
 //     return {
 //       minLength: 5,
-//       maxLength: 10,
-//       onlyDigits: false,
-//       label: "Binance/USDT ID",
+//       maxLength: 15,
+//       onlyDigits: true,
+//       label: "Binance Pay ID",
 //     };
 //   }
+
+//   // ✅ ৪. BTC
 //   if (upper.includes("BTC") || upper.includes("BITCOIN")) {
 //     return {
 //       minLength: 26,
@@ -391,15 +775,18 @@
 //       label: "Bitcoin Address",
 //     };
 //   }
+
+//   // ✅ ৫. ETH
 //   if (upper.includes("ETH") || upper.includes("ETHEREUM")) {
 //     return {
-//       minLength: 40,
-//       maxLength: 50,
+//       minLength: 42,
+//       maxLength: 42,
 //       onlyDigits: false,
 //       label: "ETH Address",
 //     };
 //   }
 
+//   // ✅ ৬. ডিফল্ট (Mobile Banking / BDT)
 //   return {
 //     minLength: 11,
 //     maxLength: 11,
@@ -407,7 +794,6 @@
 //     label: "Mobile Banking Number",
 //   };
 // };
-
 // export async function POST(req) {
 //   try {
 //     await dbConnect();
@@ -505,12 +891,16 @@
 //     const USD_TO_BDT_RATE = Number(rateSetting?.value) || 120;
 
 //     // ✅ USD Detection
+//     // ✅ USD Detection
 //     const methodUpper = String(method).toUpperCase();
 //     const isUSDPayment =
 //       methodUpper.includes("USDT") ||
 //       methodUpper.includes("BINANCE") ||
 //       methodUpper.includes("TRX") ||
 //       methodUpper.includes("TRON") ||
+//       methodUpper.includes("BNB") ||
+//       methodUpper.includes("BEP20") ||
+//       methodUpper.includes("BSC") ||
 //       methodUpper.includes("CRYPTO") ||
 //       methodUpper.includes("BTC") ||
 //       methodUpper.includes("ETH");
@@ -696,7 +1086,7 @@
 //     );
 //   }
 // }
-// //////////////////////////////////////////////////////////////////////////////////////
+// ////////////////////////////////////////////////////////////////////
 import { NextResponse } from "next/server";
 import dbConnect from "@/utils/db";
 import Deposit from "@/models/Deposit";
@@ -727,42 +1117,42 @@ function cleanupDepositMap() {
 const getSenderValidation = (method) => {
   const upper = String(method || "").toUpperCase();
 
-  // ✅ ১. TRX / TRON / USDT TRC20
+  // ✅ ১. TRX / TRON / USDT (TRC20) - ৩৪ অক্ষর
   if (
+    (upper.includes("USDT") && upper.includes("TRC20")) ||
     upper.includes("TRX") ||
-    upper.includes("TRON") ||
-    (upper.includes("USDT") && upper.includes("TRC20"))
+    upper.includes("TRON")
   ) {
     return {
       minLength: 34,
       maxLength: 34,
       onlyDigits: false,
-      label: "TRX/USDT (TRC20) Wallet Address",
+      label: "TRX / USDT (TRC20) Wallet Address",
     };
   }
 
-  // ✅ ২. BINANCE PAY ID
+  // ✅ ২. BNB / BSC / BEP20 / USDT (BEP20) - ৪২ অক্ষর
+  if (
+    (upper.includes("USDT") && upper.includes("BEP20")) ||
+    upper.includes("BNB") ||
+    upper.includes("BSC") ||
+    upper.includes("BEP20")
+  ) {
+    return {
+      minLength: 42,
+      maxLength: 42,
+      onlyDigits: false,
+      label: "BNB / USDT (BEP20) Wallet Address",
+    };
+  }
+
+  // ✅ ৩. BINANCE PAY ID
   if (upper.includes("BINANCE")) {
     return {
       minLength: 5,
       maxLength: 15,
       onlyDigits: true,
       label: "Binance Pay ID",
-    };
-  }
-
-  // ✅ ৩. BNB / BSC / BEP20 / USDT BEP20
-  if (
-    upper.includes("BNB") ||
-    upper.includes("BSC") ||
-    upper.includes("BEP20") ||
-    (upper.includes("USDT") && upper.includes("BEP20"))
-  ) {
-    return {
-      minLength: 26,
-      maxLength: 50,
-      onlyDigits: false,
-      label: "BNB/BEP20 Wallet Address",
     };
   }
 
@@ -779,14 +1169,14 @@ const getSenderValidation = (method) => {
   // ✅ ৫. ETH
   if (upper.includes("ETH") || upper.includes("ETHEREUM")) {
     return {
-      minLength: 40,
-      maxLength: 50,
+      minLength: 42,
+      maxLength: 42,
       onlyDigits: false,
       label: "ETH Address",
     };
   }
 
-  // ✅ ৬. ডিফল্ট (Mobile Banking / BDT)
+  // ✅ ৬. ডিফল্ট (Mobile Banking / BDT) - ১১ ডিজিট
   return {
     minLength: 11,
     maxLength: 11,
@@ -891,17 +1281,19 @@ export async function POST(req) {
     const rateSetting = await Setting.findOne({ key: "usdToBdtRate" });
     const USD_TO_BDT_RATE = Number(rateSetting?.value) || 120;
 
-    // ✅ USD Detection
+    // ✅ USD Detection (সব ক্রিপ্টো মেথড এখানে যোগ করা হলো)
     const methodUpper = String(method).toUpperCase();
     const isUSDPayment =
       methodUpper.includes("USDT") ||
       methodUpper.includes("BINANCE") ||
       methodUpper.includes("TRX") ||
       methodUpper.includes("TRON") ||
+      methodUpper.includes("BNB") ||
+      methodUpper.includes("BEP20") ||
+      methodUpper.includes("BSC") ||
       methodUpper.includes("CRYPTO") ||
       methodUpper.includes("BTC") ||
       methodUpper.includes("ETH");
-    methodUpper.includes("BNB");
 
     // ✅ Convert to BDT
     const originalAmount = cleanAmount;

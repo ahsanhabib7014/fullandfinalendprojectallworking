@@ -1034,17 +1034,130 @@ import TabSwitcher from "./TabSwitcher";
 // ==========================================
 // ✅ Method-specific Config (আপডেট করা হয়েছে)
 // ==========================================
+// const getCryptoConfig = (methodName) => {
+//   const upper = String(methodName || "").toUpperCase();
+
+//   // ✅ ১. USDT TRC20 (এটি সবার আগে চেক করতে হবে)
+//   if (upper.includes("TRC20")) {
+//     return {
+//       isCrypto: true,
+//       currency: "USD",
+//       amountLabel: "টাকার পরিমাণ (USD $)",
+//       amountPlaceholder: "যেমন: 10",
+//       senderLabel: "আপনার USDT (TRC20) Wallet Address",
+//       senderPlaceholder: "TXYZ... (৩৪ character)",
+//       senderMinLength: 34,
+//       senderMaxLength: 34,
+//       senderOnlyDigits: false,
+//     };
+//   }
+
+//   // ✅ ২. BNB / BSC / BEP20
+//   if (
+//     upper.includes("BEP20") ||
+//     upper.includes("BSC") ||
+//     upper.includes("BNB")
+//   ) {
+//     return {
+//       isCrypto: true,
+//       currency: "USD",
+//       amountLabel: "টাকার পরিমাণ (USD $)",
+//       amountPlaceholder: "যেমন: 10",
+//       senderLabel: "আপনার BEP20 Wallet Address",
+//       senderPlaceholder: "0x... (৪২ character)",
+//       senderMinLength: 42,
+//       senderMaxLength: 42,
+//       senderOnlyDigits: false,
+//     };
+//   }
+
+//   // ✅ ৩. TRX / TRON
+//   if (upper.includes("TRX") || upper.includes("TRON")) {
+//     return {
+//       isCrypto: true,
+//       currency: "USD",
+//       amountLabel: "টাকার পরিমাণ (USD $)",
+//       amountPlaceholder: "যেমন: 10",
+//       senderLabel: "আপনার TRX Wallet Address",
+//       senderPlaceholder: "TXYZ... (৩৪ character)",
+//       senderMinLength: 34,
+//       senderMaxLength: 34,
+//       senderOnlyDigits: false,
+//     };
+//   }
+
+//   // ✅ ৪. BINANCE PAY ID
+//   if (upper.includes("BINANCE")) {
+//     return {
+//       isCrypto: true,
+//       currency: "USD",
+//       amountLabel: "টাকার পরিমাণ (USD $)",
+//       amountPlaceholder: "যেমন: 10",
+//       senderLabel: "আপনার Binance Pay ID",
+//       senderPlaceholder: "যেমন: 4454344556",
+//       senderMinLength: 5,
+//       senderMaxLength: 15,
+//       senderOnlyDigits: true,
+//     };
+//   }
+
+//   // ✅ ৫. BTC
+//   if (upper.includes("BTC") || upper.includes("BITCOIN")) {
+//     return {
+//       isCrypto: true,
+//       currency: "USD",
+//       amountLabel: "টাকার পরিমাণ (USD $)",
+//       amountPlaceholder: "যেমন: 10",
+//       senderLabel: "আপনার Bitcoin Wallet Address",
+//       senderPlaceholder: "bc1... or 1...",
+//       senderMinLength: 26,
+//       senderMaxLength: 50,
+//       senderOnlyDigits: false,
+//     };
+//   }
+
+//   // ✅ ৬. ETH
+//   if (upper.includes("ETH") || upper.includes("ETHEREUM")) {
+//     return {
+//       isCrypto: true,
+//       currency: "USD",
+//       amountLabel: "টাকার পরিমাণ (USD $)",
+//       amountPlaceholder: "যেমন: 10",
+//       senderLabel: "আপনার ETH Wallet Address",
+//       senderPlaceholder: "0x... (৪২ character)",
+//       senderMinLength: 42,
+//       senderMaxLength: 42,
+//       senderOnlyDigits: false,
+//     };
+//   }
+
+//   // ✅ ৭. ডিফল্ট (Mobile Banking / BDT)
+//   return {
+//     isCrypto: false,
+//     currency: "BDT",
+//     amountLabel: "টাকার পরিমাণ (৳)",
+//     amountPlaceholder: "যেমন: 500",
+//     senderLabel: "যে নাম্বার থেকে টাকা পাঠিয়েছেন",
+//     senderPlaceholder: "01700000000 (১১ ডিজিট)",
+//     senderMinLength: 11,
+//     senderMaxLength: 11,
+//     senderOnlyDigits: true,
+//   };
+// };
+// ==========================================
+// ✅ Method-specific Config (১০০% সংশোধিত)
+// ==========================================
 const getCryptoConfig = (methodName) => {
   const upper = String(methodName || "").toUpperCase();
 
-  // ✅ ১. USDT TRC20 (এটি সবার আগে চেক করতে হবে)
+  // ✅ ১. USDT TRC20 / TRX TRC20 (যেকোনো TRC20 সবার আগে)
   if (upper.includes("TRC20")) {
     return {
       isCrypto: true,
       currency: "USD",
       amountLabel: "টাকার পরিমাণ (USD $)",
       amountPlaceholder: "যেমন: 10",
-      senderLabel: "আপনার USDT (TRC20) Wallet Address",
+      senderLabel: "আপনার USDT/TRX (TRC20) Wallet Address",
       senderPlaceholder: "TXYZ... (৩৪ character)",
       senderMinLength: 34,
       senderMaxLength: 34,
@@ -1052,7 +1165,7 @@ const getCryptoConfig = (methodName) => {
     };
   }
 
-  // ✅ ২. BNB / BSC / BEP20
+  // ✅ ২. BNB / BSC / BEP20 (BNB সবার আগে চেক হবে, TRX এর আগে)
   if (
     upper.includes("BEP20") ||
     upper.includes("BSC") ||
@@ -1063,7 +1176,7 @@ const getCryptoConfig = (methodName) => {
       currency: "USD",
       amountLabel: "টাকার পরিমাণ (USD $)",
       amountPlaceholder: "যেমন: 10",
-      senderLabel: "আপনার BEP20 Wallet Address",
+      senderLabel: "আপনার BNB/BEP20 Wallet Address",
       senderPlaceholder: "0x... (৪২ character)",
       senderMinLength: 42,
       senderMaxLength: 42,
@@ -1071,8 +1184,11 @@ const getCryptoConfig = (methodName) => {
     };
   }
 
-  // ✅ ৩. TRX / TRON
-  if (upper.includes("TRX") || upper.includes("TRON")) {
+  // ✅ ৩. শুধু TRX / TRON (TRC20 ছাড়া)
+  if (
+    (upper.includes("TRX") || upper.includes("TRON")) &&
+    !upper.includes("TRC20")
+  ) {
     return {
       isCrypto: true,
       currency: "USD",
@@ -1144,7 +1260,6 @@ const getCryptoConfig = (methodName) => {
     senderOnlyDigits: true,
   };
 };
-
 export default function UserDepositPage() {
   const router = useRouter();
 

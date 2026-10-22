@@ -68,7 +68,7 @@ export function proxy(req) {
       "/api/auth/reset-password",
       "/api/auth/logout",
       "/api/cron",
-      "/api/admin/seed",
+      // "/api/admin/seed",
     ];
     const isPublicApi = publicApiPaths.some((path) =>
       pathname.startsWith(path),
